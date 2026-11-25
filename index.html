@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081120">
+  <title>金星と火星の見え方</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #081120;
+      --panel: #111e32;
+      --diagram: #091426;
+      --line: #526783;
+      --text: #f5f7ff;
+      --muted: #c4d2e6;
+      --gold: #ffda8b;
+      --blue: #88e3ff;
+      font-family: "BIZ UDPGothic", "BIZ UDPゴシック", "Hiragino Sans",
+        "Yu Gothic", Meiryo, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+
+    main { width: min(100%, 76rem); margin: auto; padding: clamp(.75rem, 3vw, 2rem); }
+    header h1 { margin: 0; font-size: clamp(1.75rem, 4vw, 3rem); line-height: 1.25; }
+    header p, .hint, .note { color: var(--muted); }
+    header p { margin: .4rem 0 0; }
+    h2 { margin: 0; font-size: 1.2rem; line-height: 1.4; }
+    h3 { margin: 0; font-size: 1rem; }
+
+    button {
+      min-width: 44px;
+      min-height: 44px;
+      padding: .5rem .8rem;
+      border: 1px solid var(--line);
+      border-radius: .55rem;
+      color: var(--text);
+      background: #1b2d47;
+      font: inherit;
+      font-weight: bold;
+      line-height: 1.4;
+      cursor: pointer;
+    }
+
+    button:hover { background: #29405e; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    button[aria-pressed="true"], .record-button {
+      border-color: var(--gold);
+      background: var(--gold);
+      color: #171720;
+    }
+
+    button[aria-pressed="true"]:hover, .record-button:hover { background: #ffe7ae; }
+    .modes, .presets, .legend { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .modes { margin: 1rem 0; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: .85rem;
+      align-items: start;
+    }
+
+    @media (orientation: landscape) and (min-width: 52rem) {
+      .workspace { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+    }
+
+    .card {
+      min-width: 0;
+      padding: clamp(.7rem, 2vw, 1.15rem);
+      border: 1px solid var(--line);
+      border-radius: .9rem;
+      background: var(--panel);
+    }
+
+    .hint, .note { margin: .35rem 0; }
+    .orbit-frame {
+      margin-top: .65rem;
+      border-radius: .6rem;
+      background:
+        radial-gradient(circle at 15% 20%, #869cbb 0 1px, transparent 1.5px),
+        radial-gradient(circle at 80% 75%, #657e9e 0 1px, transparent 1.5px),
+        radial-gradient(circle at 65% 20%, #657e9e 0 1px, transparent 1.5px),
+        var(--diagram);
+    }
+
+    #orbit {
+      display: block;
+      width: 100%;
+      max-width: 34rem;
+      max-height: 43vh;
+      margin: auto;
+      touch-action: none;
+      user-select: none;
+      cursor: crosshair;
+    }
+
+    #orbit text { font: bold 16px inherit; fill: var(--text); }
+    .orbit-line { fill: none; stroke: #7185a1; stroke-width: 1.6; }
+    .planet-orbit { stroke-dasharray: 5 5; }
+    .sunlight { stroke: var(--gold); stroke-width: 2; }
+    .sightline { stroke: var(--blue); stroke-width: 2; stroke-dasharray: 4 5; }
+    .sun-direction { stroke: #91a4bd; stroke-dasharray: 8 5; }
+    #angleArc { fill: none; stroke: #f1f5ff; stroke-width: 2; }
+    .legend { margin: .55rem 0; color: var(--muted); }
+    .legend span { display: inline-flex; align-items: center; gap: .4rem; }
+    .legend i { display: inline-block; width: 1.4rem; border-top: 2px solid var(--gold); }
+    .legend .dotted { border-top: 2px dashed var(--blue); }
+
+    .position-control { display: flex; align-items: center; flex-wrap: wrap; gap: 0 .65rem; }
+    .position-control input { flex: 1 1 9rem; min-width: 0; height: 44px; accent-color: var(--gold); }
+    .presets button { flex: 1 1 9rem; }
+    .observation h2, .comparison h2 { margin-bottom: .65rem; }
+
+    .disk {
+      display: block;
+      width: min(100%, 17rem);
+      height: auto;
+      aspect-ratio: 1;
+      margin-inline: auto;
+      background: var(--diagram);
+      border-radius: .6rem;
+    }
+
+    .observation .disk { width: auto; max-width: 100%; height: clamp(8rem, 27vh, 17rem); }
+    .reading { margin: .55rem 0; }
+    .reading p { margin: .1rem 0; }
+    #visibilityTitle { font-size: 1.2rem; color: var(--gold); }
+    #visibilityDetail { color: var(--muted); }
+    .record-button { width: 100%; }
+    .comparison { margin-top: .85rem; }
+    .compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+    .sample {
+      min-width: 0;
+      padding: .6rem;
+      border: 1px solid var(--line);
+      border-radius: .6rem;
+      background: var(--diagram);
+    }
+    .sample p { margin: .25rem 0; overflow-wrap: anywhere; }
+    .sample .disk { width: min(100%, 12rem); }
+    .status { margin: .5rem 0 0; color: var(--gold); }
+    .status:empty { display: none; }
+    .note { margin-top: .85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>金星と火星の見え方</h1>
+      <p>惑星を動かして、地球から見える形と大きさを比べよう。</p>
+    </header>
+
+    <div class="modes" role="group" aria-label="惑星モード">
+      <button id="venusMode" type="button" aria-pressed="true">金星モード</button>
+      <button id="marsMode" type="button" aria-pressed="false">火星モード</button>
+    </div>
+
+    <div class="workspace">
+      <section class="card" aria-labelledby="orbitHeading">
+        <h2 id="orbitHeading">太陽系を上から見る</h2>
+        <p class="hint" id="orbitHint">惑星を指で動かそう。軌道上をタップしても移動できるよ。</p>
+
+        <div class="orbit-frame">
+          <svg id="orbit" viewBox="0 0 480 320" role="img"
+            aria-label="太陽、地球、選択した惑星の配置図" aria-describedby="orbitHint">
+            <circle class="orbit-line" cx="218" cy="160" r="88"/>
+            <circle id="planetOrbit" class="orbit-line planet-orbit" cx="218" cy="160" r="64"/>
+            <line class="sun-direction" x1="306" y1="160" x2="218" y2="160"/>
+            <line id="lightLine" class="sunlight" x1="218" y1="160"/>
+            <line id="sightLine" class="sightline" x1="306" y1="160"/>
+            <path id="angleArc"/>
+            <circle cx="218" cy="160" r="16" fill="#ffce70"/>
+            <text x="218" y="195" text-anchor="middle">太陽</text>
+            <circle cx="306" cy="160" r="10" fill="#88e3ff" stroke="#d7f6ff" stroke-width="2"/>
+            <text x="323" y="166">地球</text>
+            <g id="planetMarker">
+              <circle r="27" fill="transparent"/>
+              <circle r="11" fill="#25354d"/>
+              <path id="litHalf" d="M 0 -11 A 11 11 0 0 1 0 11 Z" fill="#ffda8b"/>
+              <circle r="11" fill="none" stroke="#f8f3df" stroke-width="1.5"/>
+              <circle r="17" fill="none" stroke="#ffda8b" stroke-width="1.2" stroke-dasharray="3 3"/>
+            </g>
+            <text id="planetLabel" text-anchor="middle"></text>
+          </svg>
+        </div>
+
+        <div class="legend" aria-label="線の意味">
+          <span><i aria-hidden="true"></i>太陽の光</span>
+          <span><i class="dotted" aria-hidden="true"></i>地球から見る方向</span>
+        </div>
+
+        <p class="hint">地球から見た太陽と惑星の方向の差 <strong id="elongation"></strong></p>
+
+        <div class="position-control">
+          <label for="position">惑星の位置</label>
+          <input id="position" type="range" min="0" max="360" step="any" value="12">
+        </div>
+
+        <div id="presets" class="presets" role="group" aria-label="代表的な位置"></div>
+      </section>
+
+      <section class="card observation" aria-labelledby="observationHeading">
+        <h2 id="observationHeading">地球から見た金星</h2>
+        <svg id="observationDisk" class="disk" viewBox="0 0 160 160" role="img"
+          aria-label="地球から見た惑星の形"></svg>
+        <div class="reading">
+          <p><strong id="visibilityTitle"></strong></p>
+          <p id="visibilityDetail"></p>
+          <p id="observationStats"></p>
+        </div>
+        <button id="recordButton" class="record-button" type="button">この位置を記録</button>
+        <p id="status" class="status" role="status"></p>
+      </section>
+    </div>
+
+    <section class="card comparison" aria-labelledby="comparisonHeading">
+      <h2 id="comparisonHeading">見え方を比べる</h2>
+      <div class="compare-grid">
+        <section class="sample">
+          <h3>現在の惑星</h3>
+          <svg id="currentDisk" class="disk" viewBox="0 0 160 160" role="img"
+            aria-label="現在の惑星の形"></svg>
+          <p id="currentStats"></p>
+        </section>
+        <section class="sample">
+          <h3>記録した惑星</h3>
+          <svg id="savedDisk" class="disk" viewBox="0 0 160 160" role="img"
+            aria-label="記録した惑星の形" hidden></svg>
+          <p id="savedStats">「この位置を記録」を押すと、ここに表示されます。</p>
+        </section>
+      </div>
+    </section>
+
+    <p class="note">地球を固定し、惑星が同じ平面上の円軌道を回るとしたモデルです。図中のアイコンは拡大しています。「秒角」は空での見かけの直径を表す単位で、1度は3,600秒角です。</p>
+  </main>
+
+  <script>
+    "use strict";
+
+    const byId = (id) => document.getElementById(id);
+    const svgNS = "http://www.w3.org/2000/svg";
+    const degrees = 180 / Math.PI;
+    const auKm = 149597870.7;
+    const sun = { x: 218, y: 160 };
+    const earth = { x: 306, y: 160 };
+    const orbitScale = 88;
+    const planets = {
+      venus: { name: "金星", orbit: 0.723, radiusKm: 6051.8, color: "#ffda8b" },
+      mars: { name: "火星", orbit: 1.524, radiusKm: 3389.5, color: "#ffa385" }
+    };
+
+    const positions = { venus: 12, mars: 0 };
+    let mode = "venus";
+    let saved = null;
+    let activePointer = null;
+
+    const orbit = byId("orbit");
+    const position = byId("position");
+    const observationDisk = byId("observationDisk");
+    const currentDisk = byId("currentDisk");
+    const savedDisk = byId("savedDisk");
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function angularDiameter(radiusKm, distanceAu) {
+      return 2 * Math.atan(radiusKm / (distanceAu * auKm)) * degrees * 3600;
+    }
+
+    const maxDiameter = Math.max(...Object.values(planets).map((planet) =>
+      angularDiameter(planet.radiusKm, Math.abs(1 - planet.orbit))
+    ));
+
+    function getObservation(key, angle) {
+      const planet = planets[key];
+      const radians = angle / degrees;
+
+      // 太陽を原点とし、黄道北側から見て反時計回りを正とする。
+      const x = planet.orbit * Math.cos(radians);
+      const y = planet.orbit * Math.sin(radians);
+      const distance = Math.hypot(1 - x, y);
+      const phaseCos = clamp((planet.orbit ** 2 - x) / (planet.orbit * distance), -1, 1);
+
+      // 地球から太陽へのベクトル (-1, 0) を基準にした符号付き角度。
+      const signedElongation = Math.atan2(-y, 1 - x) * degrees;
+      const elongation = Math.abs(signedElongation);
+
+      return {
+        planet,
+        x,
+        y,
+        phaseCos,
+        elongation,
+        signedElongation,
+        percent: 50 * (1 + phaseCos),
+        diameter: angularDiameter(planet.radiusKm, distance)
+      };
+    }
+
+    function getVisibility(key, data) {
+      if (data.elongation < 5) {
+        return ["太陽に近く見える", "太陽とほぼ同じ方向にあり、観察しにくい。"];
+      }
+      if (key === "venus") {
+        return data.signedElongation < 0
+          ? ["明けの明星", "日の出前・東の空"]
+          : ["宵の明星", "日没後・西の空"];
+      }
+      if (data.elongation >= 175) {
+        return ["衝（しょう）付近", "太陽とほぼ反対の方向にあり、一晩中見やすい。"];
+      }
+      return data.signedElongation < 0
+        ? ["太陽の西側に見える", "日の出前に観察できる位置。"]
+        : ["太陽の東側に見える", "日没後に観察できる位置。"];
+    }
+
+    function makeSvg(tag, attributes) {
+      const element = document.createElementNS(svgNS, tag);
+      for (const [name, value] of Object.entries(attributes)) {
+        element.setAttribute(name, value);
+      }
+      return element;
+    }
+
+    function drawDisk(svg, data) {
+      const radius = 66 * data.diameter / maxDiameter;
+      const group = makeSvg("g", { transform: "translate(80 80)" });
+      group.append(makeSvg("circle", { r: radius, fill: "#25334a" }));
+
+      // 右側の外周と、位相角に応じた楕円弧で明るい領域を囲む。
+      if (data.phaseCos > 0.999999) {
+        group.append(makeSvg("circle", { r: radius, fill: data.planet.color }));
+      } else if (data.phaseCos > -0.999999) {
+        const terminatorWidth = Math.abs(data.phaseCos) * radius;
+        const terminator = terminatorWidth < 0.0001
+          ? `L 0 ${-radius}`
+          : `A ${terminatorWidth} ${radius} 0 0 ${data.phaseCos > 0 ? 1 : 0} 0 ${-radius}`;
+        const bright = makeSvg("path", {
+          d: `M 0 ${-radius} A ${radius} ${radius} 0 0 1 0 ${radius} ${terminator} Z`,
+          fill: data.planet.color
+        });
+        // 観察図では天球上の東を右向きとして描く。
+        if (data.signedElongation > 0) bright.setAttribute("transform", "scale(-1 1)");
+        group.append(bright);
+      }
+
+      group.append(makeSvg("circle", {
+        r: radius, fill: "none", stroke: "#8192aa", "stroke-width": 0.8
+      }));
+      svg.replaceChildren(group);
+      svg.setAttribute("aria-label", `${data.planet.name}。${describe(data)}`);
+    }
+
+    function describe(data) {
+      return `明るい面 ${data.percent.toFixed(1)}％ ／ 見かけの直径 ${data.diameter.toFixed(1)}秒角`;
+    }
+
+    function drawOrbit(data) {
+      const x = sun.x + data.x * orbitScale;
+      const y = sun.y - data.y * orbitScale;
+
+      byId("planetOrbit").setAttribute("r", data.planet.orbit * orbitScale);
+      byId("planetMarker").setAttribute("transform", `translate(${x} ${y})`);
+      byId("litHalf").setAttribute("fill", data.planet.color);
+      const sunward = Math.atan2(sun.y - y, sun.x - x) * degrees;
+      byId("litHalf").setAttribute("transform", `rotate(${sunward})`);
+
+      const label = byId("planetLabel");
+      label.textContent = data.planet.name;
+      label.setAttribute("x", x);
+      label.setAttribute("y", y < sun.y ? y - 23 : y + 34);
+
+      for (const line of [byId("lightLine"), byId("sightLine")]) {
+        line.setAttribute("x2", x);
+        line.setAttribute("y2", y);
+      }
+
+      const arcRadius = 27;
+      const endAngle = Math.atan2(earth.y - y, earth.x - x);
+      const endX = earth.x - arcRadius * Math.cos(endAngle);
+      const endY = earth.y - arcRadius * Math.sin(endAngle);
+      const arc = byId("angleArc");
+      arc.setAttribute("d", Math.abs(endAngle) < 1e-6 ? "" :
+        `M ${earth.x - arcRadius} ${earth.y} A ${arcRadius} ${arcRadius} 0 0 ${endAngle > 0 ? 1 : 0} ${endX} ${endY}`);
+    }
+
+    function render() {
+      const data = getObservation(mode, positions[mode]);
+      drawOrbit(data);
+      drawDisk(observationDisk, data);
+      drawDisk(currentDisk, data);
+
+      byId("observationHeading").textContent = `地球から見た${data.planet.name}`;
+      byId("elongation").textContent = `${data.elongation.toFixed(1)}°`;
+      position.value = positions[mode];
+      position.setAttribute("aria-valuetext", `${Math.round(positions[mode])}度`);
+
+      const [title, detail] = getVisibility(mode, data);
+      byId("visibilityTitle").textContent = title;
+      byId("visibilityDetail").textContent = detail;
+      byId("observationStats").textContent = describe(data);
+      byId("currentStats").textContent = `${data.planet.name} ／ ${describe(data)}`;
+
+      savedDisk.style.display = saved ? "" : "none";
+      savedDisk.toggleAttribute("hidden", !saved);
+      if (saved) {
+        drawDisk(savedDisk, saved);
+        byId("savedStats").textContent = `${saved.planet.name} ／ ${describe(saved)}`;
+      }
+    }
+
+    function setAngle(angle) {
+      positions[mode] = angle;
+      render();
+    }
+
+    function setMode(key) {
+      mode = key;
+      byId("venusMode").setAttribute("aria-pressed", String(key === "venus"));
+      byId("marsMode").setAttribute("aria-pressed", String(key === "mars"));
+
+      const choices = key === "venus" ? [
+        ["細く見える位置", 12],
+        ["半分見える位置", Math.acos(planets.venus.orbit) * degrees],
+        ["丸に近く見える位置", 150]
+      ] : [
+        ["衝の位置", 0],
+        ["少し欠けて見える位置", Math.acos(1 / planets.mars.orbit) * degrees],
+        ["太陽に近く見える位置", 180]
+      ];
+
+      byId("presets").replaceChildren(...choices.map(([label, angle]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.addEventListener("click", () => setAngle(angle));
+        return button;
+      }));
+      render();
+    }
+
+    function getPointerPoint(event) {
+      const matrix = orbit.getScreenCTM();
+      if (!matrix) return null;
+      const point = orbit.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      return point.matrixTransform(matrix.inverse());
+    }
+
+    function moveToPoint(point) {
+      if (!point || Math.hypot(point.x - sun.x, point.y - sun.y) < 8) return;
+      const angle = Math.atan2(sun.y - point.y, point.x - sun.x) * degrees;
+      setAngle((angle + 360) % 360);
+    }
+
+    orbit.addEventListener("pointerdown", (event) => {
+      if (activePointer !== null || event.button !== 0) return;
+      const point = getPointerPoint(event);
+      if (!point) return;
+      const orbitRadius = planets[mode].orbit * orbitScale;
+      const distance = Math.hypot(point.x - sun.x, point.y - sun.y);
+      const hitMargin = 22 / Math.hypot(orbit.getScreenCTM().a, orbit.getScreenCTM().b);
+      if (Math.abs(distance - orbitRadius) > hitMargin) return;
+
+      activePointer = event.pointerId;
+      orbit.setPointerCapture(event.pointerId);
+      moveToPoint(point);
+    });
+
+    orbit.addEventListener("pointermove", (event) => {
+      if (event.pointerId === activePointer) moveToPoint(getPointerPoint(event));
+    });
+
+    function endDrag(event) {
+      if (event.pointerId === activePointer) activePointer = null;
+    }
+
+    orbit.addEventListener("pointerup", endDrag);
+    orbit.addEventListener("pointercancel", endDrag);
+    orbit.addEventListener("lostpointercapture", endDrag);
+    position.addEventListener("input", () => setAngle(Number(position.value)));
+    byId("venusMode").addEventListener("click", () => setMode("venus"));
+    byId("marsMode").addEventListener("click", () => setMode("mars"));
+
+    byId("recordButton").addEventListener("click", () => {
+      const replacing = saved !== null;
+      saved = getObservation(mode, positions[mode]);
+      render();
+      byId("status").textContent = replacing
+        ? `記録を現在の${saved.planet.name}に更新しました。`
+        : `${saved.planet.name}を記録しました。`;
+    });
+
+    setMode("venus");
+  </script>
+</body>
+</html>
